@@ -1,0 +1,115 @@
+#include"adc.h"
+
+float	voltage1=0;   
+float voltage2=0;
+
+float voltage3=0;
+float voltage4=0;
+
+float voltage5=0;
+float voltage6=0;
+
+u16 ADC_Value[6]={0,0,0,0,0,0};
+
+void adc_init(void)
+{
+		GPIO_InitTypeDef GPIO_InitStructure; //¶¨Òå½á¹¹Ìå±äÁ¿	
+		ADC_InitTypeDef       ADC_InitStructure;
+		
+		RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOA|RCC_APB2Periph_ADC1,ENABLE);
+		
+		RCC_ADCCLKConfig(RCC_PCLK2_Div6);//ÉèÖÃADC·ÖÆµÒò×Ó6 72M/6=12,ADC×î´óÊ±¼ä²»ÄÜ³¬¹ý14M
+		
+		GPIO_InitStructure.GPIO_Pin=GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3|GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_6;//ADC
+		GPIO_InitStructure.GPIO_Mode=GPIO_Mode_AIN;	//Ä£ÄâÊäÈë
+		GPIO_InitStructure.GPIO_Speed=GPIO_Speed_50MHz;
+		GPIO_Init(GPIOA,&GPIO_InitStructure);
+		GPIO_ResetBits(GPIOA,GPIO_Pin_1|GPIO_Pin_2|GPIO_Pin_3|GPIO_Pin_4|GPIO_Pin_5|GPIO_Pin_6);
+		ADC_DeInit(ADC1);  //½«ÍâÉè ADC1 µÄÈ«²¿¼Ä´æÆ÷ÖØÉèÎªÈ±Ê¡
+		
+		DMA_Configuration(); 
+		ADC_InitStructure.ADC_Mode = ADC_Mode_Independent;
+		ADC_InitStructure.ADC_ScanConvMode = ENABLE;//·ÇÉ¨ÃèÄ£Ê½	
+		ADC_InitStructure.ADC_ContinuousConvMode = ENABLE;//¹Ø±ÕÁ¬Ðø×ª»»
+		ADC_InitStructure.ADC_ExternalTrigConv = ADC_ExternalTrigConv_None;//½ûÖ¹´¥·¢¼ì²â£¬Ê¹ÓÃÈí¼þ´¥·¢
+		ADC_InitStructure.ADC_DataAlign = ADC_DataAlign_Right;//ÓÒ¶ÔÆë	
+		ADC_InitStructure.ADC_NbrOfChannel =6;//1¸ö×ª»»ÔÚ¹æÔòÐòÁÐÖÐ Ò²¾ÍÊÇÖ»×ª»»¹æÔòÐòÁÐ10 
+		ADC_Init(ADC1, &ADC_InitStructure);//ADC³õÊ¼»¯
+		
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_1, 1, ADC_SampleTime_239Cycles5 );
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_2, 2, ADC_SampleTime_239Cycles5 );
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_3, 3, ADC_SampleTime_239Cycles5 );
+		ADC_RegularChannelConfig(ADC1, ADC_Channel_4, 4, ADC_SampleTime_239Cycles5 );
+	  ADC_RegularChannelConfig(ADC1, ADC_Channel_5, 5, ADC_SampleTime_239Cycles5 );
+    ADC_RegularChannelConfig(ADC1, ADC_Channel_6, 6, ADC_SampleTime_239Cycles5);
+    // ¿ªÆôADCµÄDMAÖ§³Ö£¨ÒªÊµÏÖDMA¹¦ÄÜ£¬»¹Ðè¶ÀÁ¢ÅäÖÃDMAÍ¨µÀµÈ²ÎÊý£©     
+    ADC_DMACmd(ADC1, ENABLE); 
+    /* Enable ADC1 */    
+    ADC_Cmd(ADC1, ENABLE);    //Ê¹ÄÜÖ¸¶¨µÄADC1
+     /* Enable ADC1 reset calibaration register */      
+    ADC_ResetCalibration(ADC1);  //¸´Î»Ö¸¶¨µÄADC1µÄÐ£×¼¼Ä´æÆ÷ 
+    
+    /* Enable ADC1 reset calibaration register */      
+    ADC_ResetCalibration(ADC1);  //¸´Î»Ö¸¶¨µÄADC1µÄÐ£×¼¼Ä´æÆ÷ 
+    /* Start ADC1 calibaration */
+    ADC_StartCalibration(ADC1);  //¿ªÊ¼Ö¸¶¨ADC1µÄÐ£×¼×´Ì¬ 
+    /* Check the end of ADC1 calibration */
+    while(ADC_GetCalibrationStatus(ADC1)); 
+    //»ñÈ¡Ö¸¶¨ADC1µÄÐ£×¼³ÌÐò,ÉèÖÃ×´Ì¬ÔòµÈ´ý
+		DMA_Cmd(DMA1_Channel1,ENABLE);	
+    ADC_SoftwareStartConvCmd(ADC1, ENABLE);		
+}
+
+void DMA_Configuration(void) 
+{
+    /* ADC1  DMA1 Channel Config */  
+    DMA_InitTypeDef DMA_InitStructure;
+    RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE); //Ê¹ÄÜDMAÊ±ÖÓ
+ 
+    DMA_DeInit(DMA1_Channel1);   //½«DMAµÄÍ¨µÀ1¼Ä´æÆ÷ÖØÉèÎªÈ±Ê¡Öµ£ºADC1Á¬½ÓDMAÍ¨µÀ1
+    DMA_InitStructure.DMA_PeripheralBaseAddr =  (u32)&(ADC1->DR);  //DMAÍâÉèADC»ùµØÖ·
+    DMA_InitStructure.DMA_MemoryBaseAddr = (u32)ADC_Value;      //DMAÄÚ´æ»ùµØÖ·
+    DMA_InitStructure.DMA_DIR = DMA_DIR_PeripheralSRC;  //ÄÚ´æ×÷ÎªÊý¾Ý´«ÊäµÄÄ¿µÄµØ
+    DMA_InitStructure.DMA_BufferSize = 6;  //´ËÖµÎªÍêÕûÒ»ÂÖDMA´«ÊäµÄ´ÎÊý
+    DMA_InitStructure.DMA_PeripheralInc = DMA_PeripheralInc_Disable;  //ÍâÉèµØÖ·²»±ä
+    DMA_InitStructure.DMA_MemoryInc = DMA_MemoryInc_Enable;  //ÄÚ´æµØÖ·µÝÔö
+    DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_HalfWord; //ÍâÉèÊý¾ÝÎ»¿í¶È16Î»£¬¼´DMA´«Êä³ß´ç
+    DMA_InitStructure.DMA_MemoryDataSize = DMA_MemoryDataSize_HalfWord; //Êý¾Ý¿í¶È16Î»
+    DMA_InitStructure.DMA_Mode = DMA_Mode_Circular;  //¹¤×÷ÔÚÑ­»·»º´æÄ£Ê½£¬Ò»ÂÖ½áÊøºó×Ô¶¯¿ªÊ¼ÏÂÂÖ´«Êä
+    DMA_InitStructure.DMA_Priority = DMA_Priority_High; //DMAÍ¨µÀ xÓµÓÐ¸ßÓÅÏÈ¼¶
+    DMA_InitStructure.DMA_M2M = DMA_M2M_Disable;  //DMAÍ¨µÀx½ûÖ¹ÄÚ´æµ½ÄÚ´æ
+    DMA_Init(DMA1_Channel1, &DMA_InitStructure);  //¸ù¾ÝDMA_InitStructÖÐ²ÎÊýDMAÍ¨µÀ
+}
+
+
+u16 Get_ADC_Value(u8 ch,u8 times)
+{
+	u32 temp_val=0;
+	u8 t;
+	//ÉèÖÃÖ¸¶¨ADCµÄ¹æÔò×éÍ¨µÀ£¬Ò»¸öÐòÁÐ£¬²ÉÑùÊ±¼ä
+	ADC_RegularChannelConfig(ADC1, ch, 1, ADC_SampleTime_55Cycles5 );	//ADC1,ADCÍ¨µÀ,239¸öÖÜÆÚ,Ìá¸ß²ÉÑùÊ±¼ä¿ÉÒÔÌá¸ß¾«È·¶È			    
+	
+	for(t=0;t<times;t++)
+	{
+		ADC_SoftwareStartConvCmd(ADC1, ENABLE);//Ê¹ÄÜÖ¸¶¨µÄADC1µÄÈí¼þ×ª»»Æô¶¯¹¦ÄÜ	
+		while(!ADC_GetFlagStatus(ADC1, ADC_FLAG_EOC ));//µÈ´ý×ª»»½áÊø
+		temp_val+=ADC_GetConversionValue(ADC1);
+		delay_ms(5);
+	}
+	return temp_val/times;
+} 
+
+
+void voltage_get(void)
+{
+	voltage1=((float)ADC_Value[0]*3.3/4096*2);
+	voltage2=((float)ADC_Value[1]*3.3/4096*2);
+	
+	voltage3=((float)ADC_Value[2]*3.3/4096*2);
+	voltage4=((float)ADC_Value[3]*3.3/4096*2);
+
+	voltage5=((float)ADC_Value[4]*3.3/4096*2);
+	voltage6=((float)ADC_Value[5]*3.3/4096*2);
+}
+
+
